@@ -97,6 +97,20 @@ client.search(
 )
 ```
 
+#### Alternatively
+
+You can also perform search using a full Leboncoin URL:
+
+```python
+client.search(
+    url="https://www.leboncoin.fr/recherche?category=9&text=maison&locations=Paris__48.86023250788424_2.339006433295173_9256&square=100-200price=500000-1000000&rooms=1-6&bedrooms=3-6&outside_access=garden,terrace&orientation=south_west&owner_type=private",
+    page=1,
+    limit=35
+)
+```
+
+If `url` is provided, it overrides other keyword parameters such as `text`, `category`, `locations`, etc. However, pagination parameters like `page`, `limit`, and `limit_alu` are still applied.
+
 ### Location
 
 The `locations` parameter accepts a list of one or more location objects. You can use one of the following:

@@ -22,8 +22,8 @@ def main() -> None:
         category=lbc.Category.IMMOBILIER,
         owner_type=lbc.OwnerType.ALL,
         search_in_title_only=True,
-        square=[200, 400],
-        price=[300_000, 700_000],
+        square=(200, 400),
+        price=[300_000, 700_000]
     )
 
     for ad in result.ads:
