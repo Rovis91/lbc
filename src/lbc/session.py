@@ -22,6 +22,14 @@ class Session:
             impersonate="firefox",
         )
 
+        session.headers.update(
+            {
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-site',
+            }
+        )
+
         if proxy:
             session.proxies = {
                 "http": proxy.url,

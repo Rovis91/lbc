@@ -42,7 +42,7 @@ pip install lbc
 
 ## Usage
 ### Client
-To create client you need to use lbc.Client class
+To create client you need to use `lbc.Client` class
 ```python
 import lbc
 
