@@ -1,6 +1,5 @@
 # lbc
 [![Latest version](https://img.shields.io/pypi/v/lbc?style=for-the-badge)](https://pypi.org/project/lbc)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/lbc?style=for-the-badge)
 [![GitHub license](https://img.shields.io/github/license/etienne-hd/lbc?style=for-the-badge)](https://github.com/etienne-hd/lbc/blob/master/LICENSE)
 
 **Unofficial client for Leboncoin API**
