@@ -119,8 +119,8 @@ def build_search_payload_with_args(
                 }   
             # Enum
             elif all(isinstance(x, str) for x in value):
-                payload["filters"]["enums"]["key"] = value
+                payload["filters"]["enums"][key] = value
             else:
                 raise InvalidValue(f"The value of '{key}' must be a list or tuple containing only integers or only strings.")
-
+            
     return payload
