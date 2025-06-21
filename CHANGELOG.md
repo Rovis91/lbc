@@ -1,3 +1,7 @@
+## 1.0.3
+### Fixed
+* Incorrect raw data extraction for location and owner in `Search.build` function
+
 ## 1.0.2
 ### Added
 * Support for full Leboncoin URL in `client.search(url=...)`
