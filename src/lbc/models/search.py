@@ -38,8 +38,8 @@ class Search:
                         generic=raw_attribute.get("generic")
                     )
                 )
-
-            raw_location: dict = raw.get("location", {})
+            
+            raw_location: dict = raw_ad.get("location", {})
             location = Location(
                 country_id=raw_location.get("country_id"),
                 region_id=raw_location.get("region_id"),
@@ -55,8 +55,8 @@ class Search:
                 provider=raw_location.get("provider"),
                 is_shape=raw_location.get("is_shape")
             )
-
-            raw_owner: dict = raw.get("owner", {})
+            
+            raw_owner: dict = raw_ad.get("owner", {})
             owner = Owner(
                 store_id=raw_owner.get("store_id"),
                 user_id=raw_owner.get("user_id"),
