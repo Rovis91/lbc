@@ -1,5 +1,6 @@
 # lbc
 [![Latest version](https://img.shields.io/pypi/v/lbc?style=for-the-badge)](https://pypi.org/project/lbc)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/lbc?style=for-the-badge)
 [![GitHub license](https://img.shields.io/github/license/etienne-hd/lbc?style=for-the-badge)](https://github.com/etienne-hd/lbc/blob/master/LICENSE)
 
 **Unofficial client for Leboncoin API**
@@ -34,12 +35,16 @@ for ad in result.ads:
 *lbc is not affiliated with, endorsed by, or in any way associated with Leboncoin or its services. Use at your own risk.*
 
 ## Installation
-Required Python 3.9+
+Required **Python 3.9+**
 ```bash
 pip install lbc
 ```
 
 ## Usage
+**Full documentation will be available soon.**
+
+Start with the [examples](examples/) to quickly understand how to use the library in real-world scenarios.
+
 ### Client
 To create client you need to use `lbc.Client` class
 ```python

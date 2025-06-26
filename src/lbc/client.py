@@ -1,5 +1,5 @@
 from .session import Session
-from .models import Proxy, Search, Category, AdType, OwnerType, Sort, Region, Department, City
+from .models import Proxy, Search, Category, AdType, OwnerType, Sort, Region, Department, City, User, Ad
 from .exceptions import DatadomeError, RequestError
 from .utils import build_search_payload_with_args, build_search_payload_with_url
 
@@ -9,7 +9,7 @@ class Client(Session):
     def __init__(self, proxy: Optional[Proxy] = None):
         super().__init__(proxy=proxy)
 
-    def _fetch(self, method: str, url: str, payload: Optional[dict] = None, timeout: int = 30) -> dict:
+    def _fetch(self, method: str, url: str, payload: Optional[dict] = None, timeout: int = 30) -> Union[dict, None]:
         """
         Internal method to send an HTTP request using the configured session.
 
@@ -95,4 +95,49 @@ class Client(Session):
             )
 
         body = self._fetch(method="POST", url="https://api.leboncoin.fr/finder/search", payload=payload)
-        return Search.build(raw=body)
+        return Search._build(raw=body, client=self)
+
+    def get_user(
+        self,
+        user_id: str
+    ) -> User:
+        """
+        Retrieve information about a user based on their user ID.
+
+        This method fetches detailed user data such as their profile, professional status,
+        and other relevant metadata available through the public user API.
+
+        Args:
+            user_id (str): The unique identifier of the user on Leboncoin. Usually found in the url (e.g 57f99bb6-0446-4b82-b05d-a44ea7bcd2cc).
+
+        Returns:
+            User: A `User` object containing the parsed user information.
+        """
+        user_data = self._fetch(method="GET", url=f"https://api.leboncoin.fr/api/user-card/v2/{user_id}/infos")
+
+        pro_data = None
+        if user_data.get("account_type") == "pro":
+            pro_data = self._fetch(method="GET", url=f"https://api.leboncoin.fr/api/onlinestores/v2/users/{user_id}?fields=all")
+
+        return User._build(user_data=user_data, pro_data=pro_data)
+    
+    def get_ad(
+        self,
+        ad_id: Union[str, int]
+    ):
+        """
+        Retrieve detailed information about a classified ad using its ID.
+
+        This method fetches the full content of an ad, including its description,
+        pricing, location, and other relevant metadata made
+        available through the public Leboncoin ad API.
+
+        Args:
+            ad_id (Union[str, int]): The unique identifier of the ad on Leboncoin. Can be found in the ad URL.
+
+        Returns:
+            Ad: An `Ad` object containing the parsed ad information.
+        """
+        body = self._fetch(method="GET", url=f"https://api.leboncoin.fr/api/adfinder/v1/classified/{ad_id}")
+
+        return Ad._build(raw=body, client=self)

@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import Union, Tuple
 
 class OwnerType(Enum):
     PRO = "pro"

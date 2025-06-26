@@ -36,12 +36,31 @@ class Session:
                 "https": proxy.url
             }
 
+        session.get("https://www.leboncoin.fr/") # Init cookies
+
         return session
 
     @property
-    def session(self):
+    def session(self) -> requests.Session:
         return self._session
     
+    @session.setter
+    def session(self, value: requests.Session):
+        if isinstance(value, requests.Session):
+            self._session = value
+        else:
+            raise TypeError("Session must be an instance of the curl_cffi.requests.Session")
+    
     @property
-    def proxy(self):
+    def proxy(self) -> Proxy:
         return self._proxy
+    
+    @proxy.setter
+    def proxy(self, value: Proxy):
+        if isinstance(value, Proxy):
+            self._session.proxies = {
+                "http": value.url,
+                "https": value.url
+            }
+        else:
+            raise TypeError("Proxy must be an instance of the Proxy class")
