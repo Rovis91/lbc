@@ -117,7 +117,10 @@ class Client(Session):
 
         pro_data = None
         if user_data.get("account_type") == "pro":
-            pro_data = self._fetch(method="GET", url=f"https://api.leboncoin.fr/api/onlinestores/v2/users/{user_id}?fields=all")
+            try:
+                pro_data = self._fetch(method="GET", url=f"https://api.leboncoin.fr/api/onlinestores/v2/users/{user_id}?fields=all")
+            except Exception:
+                pass # Some professional users may not have a Leboncoin page.
 
         return User._build(user_data=user_data, pro_data=pro_data)
     
