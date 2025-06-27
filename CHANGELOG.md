@@ -1,3 +1,7 @@
+## 1.0.5
+### Fixed
+* 404 error when fetching a pro user who doesn't have a public page
+
 ## 1.0.4
 ### Added
 * A lot of new user information can be retrieved (feedback, badges & professional info).

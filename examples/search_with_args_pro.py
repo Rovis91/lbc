@@ -32,7 +32,7 @@ def main() -> None:
 
     # Display only professional ads with their legal/professional data
     for ad in result.ads:
-        if ad.user.is_pro and ad.user.pro:
+        if ad.user.pro:
             print(
                 f"Store: {ad.user.pro.online_store_name} | "
                 f"SIRET: {ad.user.pro.siret} | "
