@@ -1,3 +1,7 @@
+## 1.0.6
+### Fixed
+* "Unknown location type" error when searching with a URL containing a zipcode.
+
 ## 1.0.5
 ### Fixed
 * 404 error when fetching a pro user who doesn't have a public page
