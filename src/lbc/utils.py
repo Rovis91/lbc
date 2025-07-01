@@ -55,7 +55,7 @@ def build_search_payload_with_url(
                     location_parts = location.split("__") # City ['Paris', '48.86023250788424_2.339006433295173_9256'], Department ['d_69'], Region ['r_18'] or Place ['p_give a star if you like it!', '0.1234567891234_-0.1234567891234567_5000_5500']
 
                     prefix_parts = location_parts[0].split("_")
-                    if len(prefix_parts) == 2: # Department ['d', '1'], Region ['r', '1'], or Place ['p', 'give a star if you like it!']
+                    if len(prefix_parts[0]) == 1: # Department ['d', '1'], Region ['r', '1'], or Place ['p', 'give a star if you like it!']
                         location_id = prefix_parts[1] # Department '1', Region '1' or Place 'give a star if you like it!'
                         match prefix_parts[0]:
                             case "d": # Department
@@ -90,7 +90,7 @@ def build_search_payload_with_url(
                         payload["filters"]["location"]["locations"].append(
                             {
                                 "locationType": "city",
-                                "city": location_parts[0],
+                                #"city": location_parts[0],
                                 "area": build_area(area_values)
                             }
                         )
