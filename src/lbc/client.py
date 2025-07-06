@@ -4,10 +4,23 @@ from .exceptions import DatadomeError, RequestError
 from .utils import build_search_payload_with_args, build_search_payload_with_url
 
 from typing import Optional, List, Union
+from curl_cffi import BrowserTypeLiteral
 
 class Client(Session):
-    def __init__(self, proxy: Optional[Proxy] = None):
-        super().__init__(proxy=proxy)
+    def __init__(self, proxy: Optional[Proxy] = None, impersonate: BrowserTypeLiteral = None, request_verify: bool = True):
+        """
+        Initializes a Leboncoin Client instance with optional proxy, browser impersonation, and SSL verification settings.
+
+        If no `impersonate` value is provided, a random browser type will be selected among common options.
+        
+        Args:
+            proxy (Optional[Proxy], optional): Proxy configuration to use for the client. If provided, it will be applied to all requests. Defaults to None.
+            impersonate (BrowserTypeLiteral, optional): Browser type to impersonate for requests (e.g., "firefox", "chrome", "edge", "safari", "safari_ios", "chrome_android"). If None, a random browser type will be chosen.
+            request_verify (bool, optional): Whether to verify SSL certificates when sending requests. Set to False to disable SSL verification (not recommended for production). Defaults to True.
+        """
+        super().__init__(proxy=proxy, impersonate=impersonate)
+
+        self.request_verify = request_verify
 
     def _fetch(self, method: str, url: str, payload: Optional[dict] = None, timeout: int = 30) -> Union[dict, None]:
         """
@@ -30,7 +43,8 @@ class Client(Session):
             method=method,
             url=url, 
             json=payload,
-            timeout=timeout
+            timeout=timeout,
+            verify=self.request_verify,
         )
         if response.ok:
             return response.json()
