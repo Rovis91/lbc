@@ -1,3 +1,9 @@
+## 1.0.7
+### Added
+* Automatic rotation of browser impersonation when `impersonate` argument in `Client` is set to None.
+* Ability to choose which browser to impersonate via the `impersonate` argument in `Client`.
+* Option to disable SSL verification for requests by setting `request_verify` to `False` in `Client`.
+
 ## 1.0.6
 ### Fixed
 * "Unknown location type" error when searching with a URL containing a zipcode.

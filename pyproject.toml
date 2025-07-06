@@ -1,6 +1,6 @@
 [project]
 name = "lbc"
-version = "1.0.6"
+version = "1.0.7"
 description = "Unofficial client for Leboncoin API"
 readme = "README.md"
 license = {text = "MIT"}
