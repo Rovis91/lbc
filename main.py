@@ -1,253 +1,235 @@
-import json
-import lbc
+#!/usr/bin/env python3
+"""
+LeBonCoin Scraper Orchestrator
+
+This script orchestrates the scraping of real estate listings from LeBonCoin
+and stores them in a Supabase database. It follows a specific workflow:
+
+1. Get cities that need scraping from database
+2. For each city/type combination, scrape listings
+3. Store new listings in database
+4. Link listings to interested users
+5. Send completion report via Telegram
+
+Environment variables required:
+- VITE_SUPABASE_URL
+- VITE_SUPABASE_ANON_KEY  
+- TELEGRAM_BOT_TOKEN
+- TELEGRAM_USER_ID
+"""
+
 import time
-from typing import List, Dict, Optional
-from pathlib import Path
-from dataclasses import dataclass
+import traceback
+from datetime import datetime
+from typing import Dict, List
 
-@dataclass
-class CitySearch:
-    city: str
-    postal_code: str
-    search_type: str  # "rental", "sale", or "both"
+from db import DatabaseManager
+from scraper import LeboncoinScraper
+from telegram import TelegramNotifier
 
-class LeboncoinScraper:
+class ScrapingOrchestrator:
     def __init__(self):
-        self.client = lbc.Client()
+        self.db = DatabaseManager()
+        self.scraper = LeboncoinScraper()
+        self.telegram = TelegramNotifier()
         
-        # City coordinates mapping
-        self.COORDINATES = {
-            "75001": {"lat": 48.86, "lng": 2.34},  # Paris
-            "63000": {"lat": 45.78, "lng": 3.08},  # Clermont-Ferrand
-            "15100": {"lat": 45.03, "lng": 3.10},  # Saint-Flour
+        # Statistics counters
+        self.stats = {
+            'cities_success': 0,
+            'cities_errors': 0,
+            'cities_warnings': 0,
+            'total_new_listings': 0,
+            'total_duplicates': 0,
+            'start_time': None,
+            'total_cities': 0
         }
     
-    def get_city_coordinates(self, postal_code: str) -> Dict[str, float]:
-        """Get coordinates for a city by postal code."""
-        if postal_code not in self.COORDINATES:
-            raise ValueError(f"No coordinates found for postal code {postal_code}")
-        return self.COORDINATES[postal_code]
-    
-    def build_search_url(self, city: str, postal_code: str, category: str) -> str:
-        """
-        Build a Leboncoin search URL based on city and category.
+    def run(self):
+        """Main orchestration method following the flowchart logic."""
+        print("🏁 Starting LeBonCoin scraping orchestration...")
+        self.stats['start_time'] = datetime.now()
         
-        Args:
-            city: City name
-            postal_code: Postal code
-            category: "9" for sales, "10" for rentals
-        """
-        coords = self.get_city_coordinates(postal_code)
-        
-        # Build location string: City__lat_lng_radius
-        location_str = f"{city}__{coords['lat']}_{coords['lng']}_10000"
-        
-        # Build URL with required parameters
-        url = (
-            f"https://www.leboncoin.fr/recherche?"
-            f"category={category}&"
-            f"locations={location_str}&"
-            f"owner_type=private&"
-            f"sort=published_at_desc"
-        )
-        
-        return url
-    
-    def search_with_pagination(
-        self, 
-        city: str, 
-        postal_code: str, 
-        search_type: str, 
-        max_listings: int = 50
-    ) -> Dict:
-        """
-        Search for listings with pagination support.
-        
-        Args:
-            city: City name
-            postal_code: Postal code
-            search_type: "rental", "sale", or "both"
-            max_listings: Maximum number of listings to retrieve
-        
-        Returns:
-            Dictionary with search results
-        """
-        all_listings = []
-        total_found = 0
-        
-        # Determine which categories to search
-        categories = []
-        if search_type in ["rental", "both"]:
-            categories.append(("10", "rental"))
-        if search_type in ["sale", "both"]:
-            categories.append(("9", "sale"))
-        
-        for category_id, listing_type in categories:
-            print(f"  Searching for {listing_type} listings...")
+        try:
+            # Step 1: Get cities that need scraping
+            cities_to_scrape = self.db.get_cities_to_scrape(scrape_interval_hours=24)
             
-            url = self.build_search_url(city, postal_code, category_id)
-            page = 1
-            listings_for_type = []
+            if not cities_to_scrape:
+                print("📨 No cities require scraping")
+                self.telegram.send_no_cities_message()
+                return
             
-            while len(listings_for_type) < max_listings:
-                try:
-                    # Search with URL-based approach
-                    result = self.client.search(
-                        url=url,
-                        page=page,
-                        limit=20  # Leboncoin's default page size
-                    )
-                    
-                    if not result.ads:
-                        break  # No more results
-                    
-                    # Process listings for this page
-                    for ad in result.ads:
-                        if len(listings_for_type) >= max_listings:
-                            break
-                        
-                        listing = {
-                            "id": ad.id,
-                            "type": listing_type,
-                            "title": ad.subject,
-                            "price": ad.price,
-                            "url": ad.url,
-                            "first_publication_date": ad.first_publication_date,
-                            "location": {
-                                "city": ad.location.city,
-                                "zipcode": ad.location.zipcode,
-                                "lat": ad.location.lat,
-                                "lng": ad.location.lng,
-                                "department_name": ad.location.department_name,
-                                "region_name": ad.location.region_name
-                            },
-                            "images": ad.images,
-                            "body": ad.body,
-                            "attributes": [
-                                {
-                                    "key": attr.key,
-                                    "key_label": attr.key_label,
-                                    "value": attr.value,
-                                    "value_label": attr.value_label
-                                }
-                                for attr in ad.attributes
-                            ]
-                        }
-                        listings_for_type.append(listing)
-                    
-                    # Check if we've reached the end
-                    if page >= result.max_pages:
-                        break
-                    
-                    page += 1
-                    
-                    # Rate limiting
-                    time.sleep(2)
-                    
-                except Exception as e:
-                    print(f"    Error on page {page}: {str(e)}")
-                    break
+            self.stats['total_cities'] = len(cities_to_scrape)
+            print(f"📋 Found {len(cities_to_scrape)} cities to scrape")
             
-            all_listings.extend(listings_for_type)
-            total_found += len(listings_for_type)
-            print(f"    Found {len(listings_for_type)} {listing_type} listings")
-        
-        return {
-            "city": city,
-            "postal_code": postal_code,
-            "search_type": search_type,
-            "total_listings": total_found,
-            "listings": all_listings
-        }
-    
-    def search_multiple_cities(
-        self, 
-        cities: List[CitySearch], 
-        max_listings_per_city: int = 50
-    ) -> List[Dict]:
-        """
-        Search multiple cities and return results.
-        
-        Args:
-            cities: List of CitySearch objects
-            max_listings_per_city: Maximum listings per city
-        
-        Returns:
-            List of search results for each city
-        """
-        results = []
-        
-        for city_search in cities:
-            print(f"\nSearching {city_search.city} ({city_search.postal_code})")
-            print(f"Search type: {city_search.search_type}")
-            
-            try:
-                result = self.search_with_pagination(
-                    city=city_search.city,
-                    postal_code=city_search.postal_code,
-                    search_type=city_search.search_type,
-                    max_listings=max_listings_per_city
-                )
-                
-                results.append(result)
-                
-                # Save individual result
-                filename = f"results/{city_search.city.lower().replace(' ', '_')}_{city_search.search_type}.json"
-                Path("results").mkdir(exist_ok=True)
-                with open(filename, "w", encoding="utf-8") as f:
-                    json.dump(result, f, ensure_ascii=False, indent=2)
-                
-                print(f"  Saved to {filename}")
+            # Step 2: Process each city
+            for city_data in cities_to_scrape:
+                self._process_city(city_data)
                 
                 # Rate limiting between cities
                 time.sleep(5)
-                
-            except Exception as e:
-                print(f"  Error searching {city_search.city}: {str(e)}")
-                continue
+            
+            # Step 3: Send final report
+            self._send_final_report()
+            
+        except Exception as e:
+            print(f"❌ Critical error in orchestration: {e}")
+            traceback.print_exc()
+            self._send_error_report(str(e))
+    
+    def _process_city(self, city_data: Dict):
+        """Process a single city for scraping."""
+        city_id = city_data['city_id']
+        city_name = city_data['city_name']
+        postal_code = city_data['postal_code']
+        lat = city_data['latitude']
+        lng = city_data['longitude']
         
-        return results
+        print(f"\n🏙️ Processing {city_name} ({postal_code})")
+        
+        # Check what types need scraping
+        needs_sale = city_data['needs_sale_scrape']
+        needs_rent = city_data['needs_rent_scrape']
+        
+        city_success = True
+        city_new_listings = 0
+        city_duplicates = 0
+        
+        try:
+            # Scrape sales if needed
+            if needs_sale:
+                print(f"  🏠 Scraping sales...")
+                new_listings, duplicates, _ = self.scraper.scrape_city_listings(
+                    city_name=city_name,
+                    lat=lat,
+                    lng=lng,
+                    city_id=city_id,
+                    listing_type='sale',
+                    max_listings=100
+                )
+                
+                # Store listings in database
+                stored_count, duplicate_count = self._store_listings(new_listings, city_id, 'sale')
+                city_new_listings += stored_count
+                city_duplicates += duplicate_count + duplicates
+                
+                # Update timestamp
+                self.db.update_city_scrape_timestamp(city_id, 'sale')
+                
+                print(f"    ✅ Found {len(new_listings)} sales listings, stored {stored_count}")
+            
+            # Scrape rentals if needed
+            if needs_rent:
+                print(f"  🏢 Scraping rentals...")
+                new_listings, duplicates, _ = self.scraper.scrape_city_listings(
+                    city_name=city_name,
+                    lat=lat,
+                    lng=lng,
+                    city_id=city_id,
+                    listing_type='rental',
+                    max_listings=100
+                )
+                
+                # Store listings in database
+                stored_count, duplicate_count = self._store_listings(new_listings, city_id, 'rental')
+                city_new_listings += stored_count
+                city_duplicates += duplicate_count + duplicates
+                
+                # Update timestamp
+                self.db.update_city_scrape_timestamp(city_id, 'rent')
+                
+                print(f"    ✅ Found {len(new_listings)} rental listings, stored {stored_count}")
+            
+            # Update statistics
+            if city_new_listings > 0:
+                self.stats['cities_success'] += 1
+                self.stats['total_new_listings'] += city_new_listings
+                self.stats['total_duplicates'] += city_duplicates
+            elif city_new_listings == 0 and (needs_sale or needs_rent):
+                self.stats['cities_warnings'] += 1
+                print(f"    ⚠️ No new listings found")
+            
+        except Exception as e:
+            print(f"    ❌ Error processing {city_name}: {e}")
+            self.stats['cities_errors'] += 1
+            city_success = False
+    
+    def _store_listings(self, listings: List[Dict], city_id: int, listing_type: str) -> tuple[int, int]:
+        """
+        Store listings in database using batched approach.
+        Returns (stored_count, duplicate_count)
+        """
+        if not listings:
+            return 0, 0
+        
+        print(f"    📦 Processing {len(listings)} listings in batch...")
+        
+        # Use the new batched insert method
+        stored_count, duplicate_count = self.db.insert_listings_batch(listings, city_id, listing_type)
+        
+        return stored_count, duplicate_count
+    
+    def _send_final_report(self):
+        """Send the final scraping report via Telegram."""
+        if not self.stats['start_time']:
+            return
+        
+        # Calculate duration
+        end_time = datetime.now()
+        duration = end_time - self.stats['start_time']
+        duration_minutes = int(duration.total_seconds() // 60)
+        duration_seconds = int(duration.total_seconds() % 60)
+        
+        # Prepare report data
+        report_data = {
+            'cities_success': self.stats['cities_success'],
+            'cities_errors': self.stats['cities_errors'],
+            'cities_warnings': self.stats['cities_warnings'],
+            'total_new_listings': self.stats['total_new_listings'],
+            'total_duplicates': self.stats['total_duplicates'],
+            'duration_minutes': duration_minutes,
+            'duration_seconds': duration_seconds,
+            'total_cities': self.stats['total_cities'],
+            'finished_at': end_time.strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # Send report
+        success = self.telegram.send_scraping_report(report_data)
+        
+        if success:
+            print(f"\n📨 Final report sent successfully")
+        else:
+            print(f"\n❌ Failed to send final report")
+        
+        # Print summary to console
+        print(f"\n🏆 SCRAPING COMPLETED")
+        print(f"─────────────────────")
+        print(f"✅ Successful cities: {report_data['cities_success']}/{report_data['total_cities']}")
+        print(f"❌ Errors: {report_data['cities_errors']} cities")
+        print(f"⚠️ Warnings: {report_data['cities_warnings']} cities (0 listings)")
+        print(f"⏱️ Duration: {duration_minutes}min {duration_seconds}s")
+        print(f"📊 New listings: {report_data['total_new_listings']}")
+        print(f"🔄 Duplicates avoided: {report_data['total_duplicates']}")
+        print(f"🗓️ Finished: {report_data['finished_at']}")
+    
+    def _send_error_report(self, error_message: str):
+        """Send error report via Telegram."""
+        message = f"❌ <b>SCRAPING FAILED</b>\n\nError: {error_message}"
+        self.telegram.send_message(message)
 
 def main():
-    """Main function simulating a real use case."""
-    
-    # Mock input data
-    cities = [
-        CitySearch("Paris", "75001", "both"),
-        CitySearch("Clermont-Ferrand", "63000", "rental"),
-        CitySearch("Saint-Flour", "15100", "sale"),
-    ]
-    
-    # Initialize scraper
-    scraper = LeboncoinScraper()
-    
-    # Search all cities
-    print("Starting Leboncoin scraper test...")
-    print("=" * 50)
-    
-    results = scraper.search_multiple_cities(
-        cities=cities,
-        max_listings_per_city=30  # Limit to 30 listings per city
-    )
-    
-    # Summary
-    print("\n" + "=" * 50)
-    print("SEARCH SUMMARY")
-    print("=" * 50)
-    
-    total_listings = 0
-    for result in results:
-        print(f"{result['city']} ({result['postal_code']}): {result['total_listings']} listings")
-        total_listings += result['total_listings']
-    
-    print(f"\nTotal listings found: {total_listings}")
-    
-    # Save combined results
-    combined_filename = "results/combined_results.json"
-    with open(combined_filename, "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
-    
-    print(f"Combined results saved to: {combined_filename}")
+    """Main entry point."""
+    try:
+        orchestrator = ScrapingOrchestrator()
+        orchestrator.run()
+    except Exception as e:
+        print(f"❌ Fatal error: {e}")
+        traceback.print_exc()
+        # Try to send error notification
+        try:
+            telegram = TelegramNotifier()
+            telegram.send_message(f"❌ <b>FATAL ERROR</b>\n\n{str(e)}")
+        except:
+            pass
 
 if __name__ == "__main__":
     main() 

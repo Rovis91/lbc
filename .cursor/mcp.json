@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "supabase-trackimmo": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--project-ref=winabqdzcqyuaoaqmfmn"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_7cbcd7be1f85d684e9d55e4918c49de32d99bc70"
+      }
+    },
+    "browser-tools": {
+      "command": "wsl",
+      "args": [
+        "bash",
+        "-c",
+        "cmd /c npx -y @agentdeskai/browser-tools-mcp@1.2.0"
+      ],
+      "enabled": true
+    }
+  }
+}
